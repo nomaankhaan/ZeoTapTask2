@@ -1,0 +1,110 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Monitoring Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8 text-center">Weather Monitoring Dashboard</h1>
+        
+        <!-- City Selection -->
+        <div class="mb-8">
+            <select id="citySelect" class="w-full md:w-64 p-2 border rounded-md">
+                {% for city in cities %}
+                <option value="{{ city }}">{{ city }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Current Weather Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Current Weather</h2>
+            <div id="currentWeather" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-gray-600">Temperature</p>
+                    <p id="temperature" class="text-2xl font-bold">--°C</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Feels Like</p>
+                    <p id="feelsLike" class="text-2xl font-bold">--°C</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Condition</p>
+                    <p id="condition" class="text-2xl font-bold">--</p>
+                </div>
+            </div>
+            <p id="lastUpdated" class="text-sm text-gray-500 mt-4">Last updated: --</p>
+        </div>
+
+        <!-- Temperature Trends -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Temperature Trends</h2>
+            <div id="temperatureTrends"></div>
+        </div>
+
+        <!-- Recent Alerts -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Recent Alerts</h2>
+            <div id="alerts" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateCurrentWeather(city) {
+            $.get(`/api/current_weather/${city}`, function(data) {
+                $('#temperature').text(`${data.temperature}°C`);
+                $('#feelsLike').text(`${data.feels_like}°C`);
+                $('#condition').text(data.condition);
+                $('#lastUpdated').text(`Last updated: ${data.timestamp}`);
+            });
+        }
+
+        function updateTemperatureTrends(city) {
+            $.get(`/api/daily_summary/${city}`, function(data) {
+                Plotly.newPlot('temperatureTrends', JSON.parse(data.graph));
+            });
+        }
+
+        function updateAlerts(city) {
+            $.get(`/api/alerts/${city}`, function(data) {
+                const alertsDiv = $('#alerts');
+                alertsDiv.empty();
+                data.forEach(alert => {
+                    alertsDiv.append(`
+                        <div class="bg-red-100 border-l-4 border-red-500 p-4">
+                            <p class="text-red-700">
+                                Temperature threshold exceeded: ${alert.temp}°C
+                                at ${new Date(alert.timestamp * 1000).toLocaleString()}
+                            </p>
+                        </div>
+                    `);
+                });
+            });
+        }
+
+        function updateDashboard() {
+            const selectedCity = $('#citySelect').val();
+            updateCurrentWeather(selectedCity);
+            updateTemperatureTrends(selectedCity);
+            updateAlerts(selectedCity);
+        }
+
+        $(document).ready(function() {
+            // Initial update
+            updateDashboard();
+
+            // Update when city changes
+            $('#citySelect').change(updateDashboard);
+
+            // Refresh data every 5 minutes
+            setInterval(updateDashboard, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html>
